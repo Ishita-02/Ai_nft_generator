@@ -28,14 +28,37 @@ function App() {
   const [isWaiting, setIsWaiting] = useState(false)
 
   const loadBlockchainData = async () => {
-    const provider = new ethers.providers.Web3Provider(window.ethereum)
-    setProvider(provider)
-
-    const network = await provider.getNetwork()
-
-    const nft = new ethers.Contract(config[network.chainId].nft.address, NFT, provider)
-    setNFT(nft)
-  }
+    try {
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      setProvider(provider);
+  
+      const network = await provider.getNetwork();
+  
+      console.log("Config:", config);
+      console.log("Network:", network);
+  
+      let nftAddress;
+  
+      // Check if the network is Ethereum mainnet (chainId: 1)
+      if (config[network.chainId]) {
+        nftAddress = config[network.chainId].nft?.address;
+      } else {
+        console.error("Configuration not found for network chainId:", network.chainId);
+        return;
+      }
+  
+      if (!nftAddress) {
+        console.error("NFT address not found for network chainId:", network.chainId);
+        return;
+      }
+  
+      const nft = new ethers.Contract(nftAddress, NFT, provider);
+      setNFT(nft);
+    } catch (error) {
+      console.error("Error loading blockchain data:", error);
+    }
+  };
+  
 
   const submitHandler = async (e) => {
     e.preventDefault()
@@ -65,13 +88,13 @@ function App() {
 
     // You can replace this with different model API's
     const URL = `https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-2`
-
+    console.log(process.env.REACT_APP_HUGGING_FACE_API_KEY)
     // Send the request
     const response = await axios({
       url: URL,
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${process.env.REACT_APP_HUGGING_FACE_API_KEY}`,
+        Authorization: `Bearer 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`,
         Accept: 'application/json',
         'Content-Type': 'application/json',
       },
@@ -95,7 +118,7 @@ function App() {
     setMessage("Uploading Image...")
 
     // Create instance to NFT.Storage
-    const nftstorage = new NFTStorage({ token: process.env.REACT_APP_NFT_STORAGE_API_KEY })
+    const nftstorage = new NFTStorage({ token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkaWQ6ZXRocjoweGZBMkJmQzY1NzkzMTExNTE4MGE1ZTAzODZCRjE4NzM5RDQ3ODlhMzAiLCJpc3MiOiJuZnQtc3RvcmFnZSIsImlhdCI6MTY4NjIyNTY4ODkxNiwibmFtZSI6Ik5mdCBzdG9yYWdlIn0.IketjSLjjwaT98fSc-lBreAO9-Yd5ova58XP0BUkuWM'})
 
     // Send request to store image
     const { ipnft } = await nftstorage.store({
