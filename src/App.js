@@ -95,16 +95,14 @@ function App() {
     //api key- lmwr_sk_W9YI92OfqV_eWmQaLd6vabPjBbD2dJD5itRg79vDAcisbMey
     //const URL = `https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-2`
     //console.log(process.env.REACT_APP_HUGGING_FACE_API_KEY)
+    const apiUrl = 'https://ai-nft-generator-wf18.vercel.app/api/proxy'
     // Send the request
     const resp = await axios(
-      `https://api.limewire.com/api/image/generation`,
+      apiUrl,
       {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Api-Version': 'v1',
-          Accept: 'application/json',
-          Authorization: `Bearer ${process.env.REACT_APP_LIME_WIRE_API_KEY}`
         },
         body: JSON.stringify({
           prompt: description,
