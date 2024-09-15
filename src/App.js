@@ -1,22 +1,16 @@
 import { useState, useEffect } from 'react';
-//import { NFTStorage, File } from 'nft.storage'
 import { Buffer } from 'buffer';
 import {PinataSDK} from 'pinata';
 import { ethers } from 'ethers';
 import axios from 'axios';
+import OpenAI from "openai";
 
-// Components
 import Spinner from 'react-bootstrap/Spinner';
 import Navigation from './components/Navigation';
 
-// ABIs
 import NFT from './abis/NFT.json'
 
-// Config
 import config from './config.json';
-// import dotenv from 'dotenv'
-
-// dotenv.config();
 
 function App() {
   const [provider, setProvider] = useState(null)
@@ -43,7 +37,6 @@ function App() {
   
       let nftAddress;
   
-      // Check if the network is Ethereum mainnet (chainId: 1)
       if (config[network.chainId]) {
         nftAddress = config[network.chainId].nft?.address;
       } else {
@@ -74,13 +67,10 @@ function App() {
 
     setIsWaiting(true)
 
-    // Call AI API to generate a image based on description
     const imageData = await createImage()
 
-    // Upload image to IPFS (NFT.Storage)
     const url = await uploadImage(imageData)
 
-    // Mint NFT
     await mintImage(url)
 
     setIsWaiting(false)
@@ -90,36 +80,28 @@ function App() {
   const createImage = async () => {
     setMessage("Generating Image...")
 
-    // You can replace this with different model API's
+    const form = new FormData();
+    form.append('prompt', description);
 
-    //api key- lmwr_sk_W9YI92OfqV_eWmQaLd6vabPjBbD2dJD5itRg79vDAcisbMey
-    //const URL = `https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-2`
-    //console.log(process.env.REACT_APP_HUGGING_FACE_API_KEY)
-    const apiUrl = 'https://ai-nft-generator-wf18.vercel.app/api/proxy'
-    // Send the request
-    const resp = await axios(
-      apiUrl,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          prompt: description,
-          aspect_ratio: '1:1'
-        })
-      }
-    );  
+    const response = await fetch('https://clipdrop-api.co/text-to-image/v1', {
+      method: 'POST',
+      headers: {
+        'x-api-key': `${process.env.REACT_APP_CLICKDROP_API_KEY}`, 
+      },
+      body: form,
+    });
 
-    const data = resp.json()
-    console.log("data", data)
-    const image = data.data[0].asset_url;
+    if (!response.ok) {
+      throw new Error(`HTTP error! Status: ${response.status}`);
+    }
+    const blob = await response.blob();
 
-    // const base64data = Buffer.from(data).toString('base64')
-    // const img = `data:${type};base64,` + base64data // <-- This is so we can render it on the page
-    setImage(image)
+    const url = URL.createObjectURL(blob);
 
-    return image
+    setImage(url);
+    setMessage("Image Generated Successfully!");
+
+    return blob;
   }
 
   const pinata = new PinataSDK({
@@ -127,27 +109,36 @@ function App() {
     pinataGateway: "harlequin-characteristic-hummingbird-431.mypinata.cloud",
   });
 
+  const pinataGateway= "harlequin-characteristic-hummingbird-431.mypinata.cloud"
+
   var imageCount = 0;
 
   const uploadImage = async (imageData) => {
     setMessage("Uploading Image...")
 
-    const file = new File(imageData, "image" + imageCount++);
+    const blob = new Blob([imageData], { type: 'image/jpeg' }); // Adjust MIME type if necessary
+    const file = new File([blob], "image" + imageCount++, { type: 'image/jpeg' }); 
+
     const upload = await pinata.upload.file(file);
     console.log(upload);
 
-    // Save the URL
-    const url = `https://ipfs.io/ipfs/${upload.cid}/metadata.json`
-    setURL(url)
-
-    return url
+    try {
+      const upload = await pinata.upload.file(file);
+      console.log(upload);
+      const url = `https://${pinataGateway}/ipfs/${upload.cid}/?pinataGatewayToken=UhHUR8T7QBjicM5i3ctXsWy89BJ0LHliIaURM3V7j6dhAospZY3pXepcgALAPk9d`;
+      setURL(url);
+      return url;
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      setMessage("Failed to upload image.");
+    }
   }
 
   const mintImage = async (tokenURI) => {
     setMessage("Waiting for Mint...")
 
     const signer = await provider.getSigner()
-    const transaction = await nft.connect(signer).mint(tokenURI, { value: ethers.utils.parseUnits("1", "ether") })
+    const transaction = await nft.connect(signer).mint(tokenURI, { value: ethers.utils.parseUnits("0.01", "ether") })
     await transaction.wait()
   }
 
@@ -180,11 +171,11 @@ function App() {
         </div>
       </div>
 
-      {!isWaiting && url && (
+      {/* {!isWaiting && url && (
         <p>
           View&nbsp;<a href={url} target="_blank" rel="noreferrer">Metadata</a>
         </p>
-      )}
+      )} */}
     </div>
   );
 }
