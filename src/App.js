@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { NFTStorage, File } from 'nft.storage'
+//import { NFTStorage, File } from 'nft.storage'
 import { Buffer } from 'buffer';
+import {PinataSDK} from 'pinata';
 import { ethers } from 'ethers';
 import axios from 'axios';
 
@@ -13,6 +14,9 @@ import NFT from './abis/NFT.json'
 
 // Config
 import config from './config.json';
+// import dotenv from 'dotenv'
+
+// dotenv.config();
 
 function App() {
   const [provider, setProvider] = useState(null)
@@ -87,48 +91,55 @@ function App() {
     setMessage("Generating Image...")
 
     // You can replace this with different model API's
-    const URL = `https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-2`
-    console.log(process.env.REACT_APP_HUGGING_FACE_API_KEY)
+
+    //api key- lmwr_sk_W9YI92OfqV_eWmQaLd6vabPjBbD2dJD5itRg79vDAcisbMey
+    //const URL = `https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-2`
+    //console.log(process.env.REACT_APP_HUGGING_FACE_API_KEY)
     // Send the request
-    const response = await axios({
-      url: URL,
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer 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`,
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-      },
-      data: JSON.stringify({
-        inputs: description, options: { wait_for_model: true },
-      }),
-      responseType: 'arraybuffer',
-    })
+    const resp = await axios(
+      `https://api.limewire.com/api/image/generation`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Api-Version': 'v1',
+          Accept: 'application/json',
+          Authorization: `Bearer ${process.env.REACT_APP_LIME_WIRE_API_KEY}`
+        },
+        body: JSON.stringify({
+          prompt: description,
+          aspect_ratio: '1:1'
+        })
+      }
+    );  
 
-    const type = response.headers['content-type']
-    const data = response.data
+    const data = resp.json()
+    console.log("data", data)
+    const image = data.data[0].asset_url;
 
-    const base64data = Buffer.from(data).toString('base64')
-    const img = `data:${type};base64,` + base64data // <-- This is so we can render it on the page
-    setImage(img)
+    // const base64data = Buffer.from(data).toString('base64')
+    // const img = `data:${type};base64,` + base64data // <-- This is so we can render it on the page
+    setImage(image)
 
-    return data
+    return image
   }
+
+  const pinata = new PinataSDK({
+    pinataJwt: process.env.REACT_APP_PINATA_JWT,
+    pinataGateway: "harlequin-characteristic-hummingbird-431.mypinata.cloud",
+  });
+
+  var imageCount = 0;
 
   const uploadImage = async (imageData) => {
     setMessage("Uploading Image...")
 
-    // Create instance to NFT.Storage
-    const nftstorage = new NFTStorage({ token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkaWQ6ZXRocjoweGZBMkJmQzY1NzkzMTExNTE4MGE1ZTAzODZCRjE4NzM5RDQ3ODlhMzAiLCJpc3MiOiJuZnQtc3RvcmFnZSIsImlhdCI6MTY4NjIyNTY4ODkxNiwibmFtZSI6Ik5mdCBzdG9yYWdlIn0.IketjSLjjwaT98fSc-lBreAO9-Yd5ova58XP0BUkuWM'})
-
-    // Send request to store image
-    const { ipnft } = await nftstorage.store({
-      image: new File([imageData], "image.jpeg", { type: "image/jpeg" }),
-      name: name,
-      description: description,
-    })
+    const file = new File(imageData, "image" + imageCount++);
+    const upload = await pinata.upload.file(file);
+    console.log(upload);
 
     // Save the URL
-    const url = `https://ipfs.io/ipfs/${ipnft}/metadata.json`
+    const url = `https://ipfs.io/ipfs/${upload.cid}/metadata.json`
     setURL(url)
 
     return url
